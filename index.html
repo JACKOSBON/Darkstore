@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Dark Store - Chat & Admin</title>
+  <title>Dark Store</title>
   <style>
     body {
       margin: 0;
@@ -20,7 +20,7 @@
     header h1 { margin: 0; font-size: 20px; }
     .search-box { display: flex; gap: 5px; }
     .banner { width: 100%; text-align: center; margin: 15px 0; }
-    .banner img { max-width: 90%; border-radius: 10px; }
+    .banner img { max-width: 95%; border-radius: 10px; }
     .products {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -88,6 +88,9 @@
       background: #238636;
       color: #fff;
     }
+    /* User menu */
+    #userMenu { margin-left: 15px; }
+    #userMenu button { margin-left: 5px; }
   </style>
 </head>
 <body>
@@ -98,10 +101,16 @@
     <input type="text" id="search" placeholder="Search products...">
     <button onclick="searchProducts()">Search</button>
   </div>
+  <div id="userMenu">
+    <span id="welcomeUser"></span>
+    <button onclick="changeUsername()">Change Username</button>
+    <button onclick="changePassword()">Change Password</button>
+    <button onclick="logout()">Logout</button>
+  </div>
 </header>
 
 <div class="banner">
-  <img src="https://i.ibb.co/3p0F7gP/anonymous.jpg" alt="Banner">
+  <img src="https://i.ibb.co/VjCzK3K/store-banner.jpg" alt="Banner">
 </div>
 
 <div class="products" id="productList"></div>
@@ -121,11 +130,24 @@
 </div>
 
 <script>
+  // Default data
   let products = JSON.parse(localStorage.getItem("products")) || [
     {id:1, name:"Sample Ebook", price:200, desc:"Demo ebook file"}
   ];
   let chats = JSON.parse(localStorage.getItem("chats")) || [];
-  let username = localStorage.getItem("username") || "guest";
+
+  // Login / user setup
+  let username = localStorage.getItem("username");
+  let password = localStorage.getItem("password");
+
+  if(!username || !password){
+    username = prompt("Enter a username:");
+    password = prompt("Set a password:");
+    localStorage.setItem("username", username);
+    localStorage.setItem("password", password);
+  }
+
+  document.getElementById("welcomeUser").innerText = "👤 " + username;
 
   function renderProducts(list=products) {
     let box = document.getElementById("productList");
@@ -175,6 +197,37 @@
     localStorage.setItem("chats", JSON.stringify(chats));
   }
 
+  // User functions
+  function changeUsername(){
+    let newName = prompt("Enter new username:");
+    if(newName){
+      username = newName;
+      localStorage.setItem("username", newName);
+      document.getElementById("welcomeUser").innerText = "👤 " + newName;
+    }
+  }
+
+  function changePassword(){
+    let oldPass = prompt("Enter old password:");
+    if(oldPass !== localStorage.getItem("password")){
+      alert("Wrong password!");
+      return;
+    }
+    let newPass = prompt("Enter new password:");
+    if(newPass){
+      localStorage.setItem("password", newPass);
+      alert("Password changed successfully!");
+    }
+  }
+
+  function logout(){
+    localStorage.removeItem("username");
+    localStorage.removeItem("password");
+    alert("Logged out!");
+    location.reload();
+  }
+
+  // Init
   renderProducts();
   renderChat();
 </script>
