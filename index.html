@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dark Store - Chat & Admin</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0d1117;
+      color: #fff;
+    }
+    header {
+      padding: 10px;
+      background: #161b22;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    .search-box { display: flex; gap: 5px; }
+    .banner { width: 100%; text-align: center; margin: 15px 0; }
+    .banner img { max-width: 90%; border-radius: 10px; }
+    .products {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 15px;
+      padding: 10px;
+    }
+    .card {
+      background: #161b22;
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+    .btn { background: #238636; color: white; }
+    .footer {
+      background: #161b22;
+      padding: 10px;
+      text-align: center;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+    }
+    .footer a {
+      text-decoration: none;
+      color: white;
+      background: #0088cc;
+      padding: 8px 12px;
+      border-radius: 5px;
+    }
+    /* Chat box */
+    #chatBox {
+      display: none;
+      position: fixed;
+      bottom: 60px;
+      right: 10px;
+      width: 300px;
+      background: #161b22;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #000;
+      flex-direction: column;
+    }
+    #chatMessages {
+      height: 200px;
+      overflow-y: auto;
+      padding: 10px;
+      border-bottom: 1px solid #333;
+    }
+    #chatInput {
+      display: flex;
+      padding: 5px;
+    }
+    #chatInput input {
+      flex: 1;
+      padding: 5px;
+      border: none;
+      border-radius: 5px;
+    }
+    #chatInput button {
+      margin-left: 5px;
+      background: #238636;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Dark Store</h1>
+  <div class="search-box">
+    <input type="text" id="search" placeholder="Search products...">
+    <button onclick="searchProducts()">Search</button>
+  </div>
+</header>
+
+<div class="banner">
+  <img src="https://i.ibb.co/3p0F7gP/anonymous.jpg" alt="Banner">
+</div>
+
+<div class="products" id="productList"></div>
+
+<!-- Chat Box -->
+<div id="chatBox">
+  <div id="chatMessages"></div>
+  <div id="chatInput">
+    <input type="text" id="chatText" placeholder="Type message...">
+    <button onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <a href="https://t.me/JACK_OSBON" target="_blank">📩 Contact on Telegram</a>
+</div>
+
+<script>
+  let products = JSON.parse(localStorage.getItem("products")) || [
+    {id:1, name:"Sample Ebook", price:200, desc:"Demo ebook file"}
+  ];
+  let chats = JSON.parse(localStorage.getItem("chats")) || [];
+  let username = localStorage.getItem("username") || "guest";
+
+  function renderProducts(list=products) {
+    let box = document.getElementById("productList");
+    box.innerHTML = "";
+    list.forEach(p=>{
+      let div = document.createElement("div");
+      div.className="card";
+      div.innerHTML = `
+        <h3>${p.name}</h3>
+        <p>${p.desc}</p>
+        <p>₹ ${p.price}</p>
+        <button class="btn" onclick="startChat('${p.name}')">Select</button>
+      `;
+      box.appendChild(div);
+    });
+  }
+
+  function searchProducts(){
+    let q = document.getElementById("search").value.toLowerCase();
+    let filtered = products.filter(p=>p.name.toLowerCase().includes(q));
+    renderProducts(filtered);
+  }
+
+  function startChat(product){
+    document.getElementById("chatBox").style.display="flex";
+    chats.push({user:username, msg:"Interested in "+product});
+    saveChats();
+    renderChat();
+  }
+
+  function renderChat(){
+    let box = document.getElementById("chatMessages");
+    box.innerHTML = chats.map(c=>`<p><b>${c.user}:</b> ${c.msg}</p>`).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function sendChat(){
+    let text = document.getElementById("chatText").value;
+    if(!text) return;
+    chats.push({user:username, msg:text});
+    saveChats();
+    document.getElementById("chatText").value="";
+    renderChat();
+  }
+
+  function saveChats(){
+    localStorage.setItem("chats", JSON.stringify(chats));
+  }
+
+  renderProducts();
+  renderChat();
+</script>
+</body>
+</html>
