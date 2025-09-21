@@ -1,0 +1,10 @@
+[
+  {
+    "id": "p1",
+    "title": "Sample Ebook",
+    "desc": "Demo ebook file",
+    "price": 200,
+    "fileURL": null,
+    "createdAt": 1690000000000
+  }
+]

@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin - Dark Store</title>
+<style>
+  body{margin:0;font-family:Inter,system-ui;background:#061224;color:#e6eef8}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#071827}
+  .container{max-width:1100px;margin:14px auto;padding:0 14px}
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:12px;margin-top:12px}
+  .panel{background:#07151f;padding:12px;border-radius:10px}
+  input,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .btn{padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
+  .btn.primary{background:#60a5fa;color:#04273a;font-weight:700}
+  .list-item{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center}
+  .small{font-size:13px;color:#9aa6b2}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div><strong>Admin Panel</strong></div>
+    <div><button class="btn primary" onclick="logout()">Logout</button></div>
+  </div>
+  <div class="container">
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      <div style="flex:1">
+        <div class="panel">
+          <h3>Products</h3>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input id="prodTitle" placeholder="Title" />
+            <input id="prodPrice" placeholder="Price" type="number" />
+          </div>
+          <textarea id="prodDesc" placeholder="Description" rows="3" style="margin-top:8px"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn primary" onclick="saveProduct()">Save / Add</button>
+            <button class="btn" onclick="refreshData()">Refresh</button>
+          </div>
+          <div id="prodList" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <div style="width:360px">
+        <div class="panel">
+          <h3>Users</h3>
+          <div id="userList"></div>
+        </div>
+
+        <div class="panel" style="margin-top:12px">
+          <h3>Chat Viewer</h3>
+          <div id="chatList" style="max-height:260px;overflow:auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const CONFIG = { USE_SERVER_API:false, API_BASE:'' };
+
+let users = [], products = [], messages = {};
+
+async function refreshData(){
+  try{
+    const u = await fetch('users.json', {cache:'no-store'}).then(r=>r.json());
+    const p = await fetch('products.json', {cache:'no-store'}).then(r=>r.json());
+    const m = await fetch('messages.json', {cache:'no-store'}).then(r=>r.json());
+    users = u; products = p; messages = m;
+  } catch(e){
+    // fallback to demo localStorage
+    users = JSON.parse(localStorage.getItem('ds_demo_users')||'[]');
+    products = JSON.parse(localStorage.getItem('ds_demo_products')||'[]');
+    messages = JSON.parse(localStorage.getItem('ds_demo_messages')||'{}');
+  }
+  renderUsers(); renderProducts(); renderChats();
+}
+
+function renderUsers(){
+  const el = document.getElementById('userList'); el.innerHTML = '';
+  users.forEach(u=>{
+    const node = document.createElement('div'); node.className='list-item';
+    node.innerHTML = `<div><strong>${u.username}</strong><div class="small">${u.role} • ${u.status}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" onclick="toggleBan('${u.username}')">${u.status==='banned'?'Unban':'Ban'}</button>
+      </div>`;
+    el.appendChild(node);
+  });
+}
+
+function toggleBan(username){
+  const idx = users.findIndex(x=>x.username===username);
+  if(idx===-1) return;
+  users[idx].status = users[idx].status === 'banned' ? 'active' : 'banned';
+  // write back
+  if(CONFIG.USE_SERVER_API){
+    fetch(CONFIG.API_BASE + '/api/update-users', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ users })})
+    .then(r=>r.json()).then(j=>{ if(j.ok){ alert('Updated users'); refreshData(); } else alert('Error: '+j.error); });
+  } else {
+    localStorage.setItem('ds_demo_users', JSON.stringify(users));
+    renderUsers();
+    alert('Updated locally (demo).');
+  }
+}
+
+function renderProducts(){
+  const el = document.getElementById('prodList'); el.innerHTML = '';
+  products.forEach(p=>{
+    const node = document.createElement('div'); node.className='list-item';
+    node.innerHTML = `<div><strong>${p.title}</strong><div class="small">₹${p.price}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn" onclick="editProduct('${p.id}')">Edit</button>
+        <button class="btn" onclick="deleteProduct('${p.id}')">Delete</button>
+      </div>`;
+    el.appendChild(node);
+  });
+}
+
+function renderChats(){
+  const el = document.getElementById('chatList'); el.innerHTML = '';
+  const keys = Object.keys(messages||{});
+  if(keys.length===0) el.innerHTML = '<div class="small">No chats</div>';
+  keys.forEach(k=>{
+    const arr = messages[k]||[];
+    const last = arr[arr.length-1];
+    const node = document.createElement('div'); node.className='list-item';
+    node.innerHTML = `<div><strong>${k}</strong><div class="small">${last? (last.from + ' • ' + new Date(last.time).toLocaleString()) : 'No messages'}</div></div>
+      <div><button class="btn" onclick="viewChat('${k}')">Open</button></div>`;
+    el.appendChild(node);
+  });
+}
+
+function viewChat(k){
+  const arr = messages[k]||[];
+  let text = 'Chat for '+k+'\\n\\n';
+  arr.forEach(m=> text += new Date(m.time).toLocaleString() + ' • ' + m.from + ': ' + m.text + '\\n');
+  alert(text);
+}
+
+function editProduct(id){
+  const p = products.find(x=>x.id===id); if(!p) return;
+  document.getElementById('prodTitle').value = p.title;
+  document.getElementById('prodDesc').value = p.desc;
+  document.getElementById('prodPrice').value = p.price;
+  document.getElementById('prodTitle').dataset.edit = id;
+}
+
+function deleteProduct(id){
+  if(!confirm('Delete product?')) return;
+  products = products.filter(x=>x.id!==id);
+  if(CONFIG.USE_SERVER_API){
+    fetch(CONFIG.API_BASE + '/api/save-products', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ products })})
+    .then(r=>r.json()).then(j=>{ if(j.ok){ alert('Deleted'); refreshData(); } else alert('Error:'+j.error); });
+  } else {
+    localStorage.setItem('ds_demo_products', JSON.stringify(products));
+    renderProducts();
+    alert('Deleted (demo).');
+  }
+}
+
+function saveProduct(){
+  const title = document.getElementById('prodTitle').value.trim();
+  const desc = document.getElementById('prodDesc').value.trim();
+  const price = Number(document.getElementById('prodPrice').value||0);
+  if(!title) return alert('Title required');
+  const editId = document.getElementById('prodTitle').dataset.edit;
+  if(editId){
+    const idx = products.findIndex(x=>x.id===editId);
+    if(idx!==-1){ products[idx].title = title; products[idx].desc = desc; products[idx].price = price; delete document.getElementById('prodTitle').dataset.edit; }
+  } else {
+    products.push({ id:'p_'+Date.now(), title, desc, price, fileURL:null, createdAt: Date.now() });
+  }
+
+  if(CONFIG.USE_SERVER_API){
+    fetch(CONFIG.API_BASE + '/api/save-products', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ products })})
+    .then(r=>r.json()).then(j=>{ if(j.ok){ alert('Saved'); refreshData(); } else alert('Error:'+j.error); });
+  } else {
+    localStorage.setItem('ds_demo_products', JSON.stringify(products));
+    renderProducts();
+    alert('Saved (demo).');
+  }
+}
+
+function logout(){ localStorage.removeItem('ds_current_user'); location.href='index.html'; }
+
+window.addEventListener('load', refreshData);
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Signup - Dark Store</title>
+<style>
+  body{margin:0;font-family:Inter,system-ui;background:#071225;color:#e6eef8;display:flex;align-items:center;justify-content:center;height:100vh}
+  .box{background:linear-gradient(180deg,#0b1722,#061018);padding:20px;border-radius:12px;width:320px}
+  input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;margin-top:8px}
+  .btn{margin-top:12px;padding:10px;border-radius:8px;border:0;background:#34d399;color:#022;font-weight:700;cursor:pointer;width:100%}
+  .link{margin-top:10px;color:#7dd3fc;cursor:pointer;text-align:center}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h2>Create account</h2>
+    <input id="uname" placeholder="Username" />
+    <input id="pwd" placeholder="Password" type="password" />
+    <button class="btn" onclick="signup()">Signup</button>
+    <div class="link" onclick="location.href='index.html'">Back to login</div>
+    <div style="font-size:12px;color:#9aa6b2;margin-top:8px">Note: This demo does not auto-write to GitHub. To create real account stored on GitHub you must set up the server (instructions below).</div>
+  </div>
+
+<script>
+const CONFIG = { USE_SERVER_API:false, API_BASE:'' };
+
+async function signup(){
+  const u=document.getElementById('uname').value.trim();
+  const p=document.getElementById('pwd').value.trim();
+  if(!u||!p){ alert('Enter username / password'); return; }
+
+  if(CONFIG.USE_SERVER_API){
+    // Call server endpoint to add to users.json (server will commit to GitHub)
+    try{
+      const res = await fetch(CONFIG.API_BASE + '/api/add-user', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username:u, password:p })
+      });
+      const j = await res.json();
+      if(j.ok){ alert('Account created'); location.href='index.html'; }
+      else alert('Error: '+(j.error||'unknown'));
+    }catch(e){ alert('Error: '+e.message); }
+    return;
+  }
+
+  // Local demo fallback: save to localStorage users list
+  const stored = JSON.parse(localStorage.getItem('ds_demo_users')||'[]');
+  if(stored.find(x=>x.username===u)){ alert('Username exists (demo)'); return; }
+  stored.push({username:u,password:p,role:'user',status:'active'});
+  localStorage.setItem('ds_demo_users', JSON.stringify(stored));
+  alert('Account created (demo local only). Now login.');
+  location.href = 'index.html';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>User - Dark Store</title>
+<style>
+  :root{--bg:#071225;--card:#0e1722;--muted:#9aa6b2;--accent:#60a5fa}
+  body{margin:0;font-family:Inter,system-ui;background:linear-gradient(180deg,#041022,#071225);color:#e6eef8}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(90deg,#081827,#041222)}
+  .brand{font-weight:800}
+  .search{display:flex;gap:8px;align-items:center}
+  input[type="text"]{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .btn{padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+  .btn.primary{background:var(--accent);color:#04273a;font-weight:700}
+  .container{max-width:1100px;margin:14px auto;padding:0 14px}
+  .banner img{width:100%;height:200px;object-fit:cover;border-radius:10px}
+  .actions{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+  .left-actions{display:flex;gap:8px;align-items:center}
+  .products{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px}
+  .card{background:var(--card);padding:12px;border-radius:10px;display:flex;flex-direction:column}
+  .card .title{font-weight:700}
+  .card .desc{color:var(--muted);font-size:13px;margin-top:6px}
+  .card .price{font-weight:800;margin-top:8px}
+  .card .actions{margin-top:auto;display:flex;gap:8px}
+  .telegram-btn{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;background:#0088cc;color:white;text-decoration:none}
+  .telegram-icon{width:18px;height:18px;display:inline-block}
+  /* chat popup */
+  .chat-popup{position:fixed;right:18px;bottom:18px;width:360px;height:480px;background:linear-gradient(180deg,#071727,#02121a);border-radius:12px;display:none;flex-direction:column;border:1px solid rgba(255,255,255,0.04);z-index:120}
+  .chat-head{padding:10px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center}
+  .chat-body{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .chat-input{display:flex;padding:10px;border-top:1px solid rgba(255,255,255,0.03)}
+  .chat-input input{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .msg.me{align-self:flex-end;background:linear-gradient(180deg,#2563eb,#1d4ed8);padding:8px;border-radius:10px;color:white;max-width:78%}
+  .msg.admin{align-self:flex-start;background:rgba(255,255,255,0.03);padding:8px;border-radius:10px;color:inherit;max-width:78%}
+  .small{font-size:13px;color:var(--muted)}
+  @media (max-width:600px){ .chat-popup{width:calc(100% - 36px);right:18px;bottom:12px} .banner img{height:140px}}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">Dark Store</div>
+    <div class="search">
+      <input id="q" type="text" placeholder="Search products...">
+      <button class="btn primary" onclick="doSearch()">Search</button>
+    </div>
+    <div>
+      <!-- Telegram button (change telegram username below in CONFIG) -->
+      <a id="tgBtn" class="telegram-btn" target="_blank" rel="noopener">
+        <span class="telegram-icon">📨</span>
+        <span>Contact on Telegram</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="banner"><img src="banner.jpg" alt="Banner (upload banner.jpg)"></div>
+
+    <div class="actions">
+      <div class="left-actions">
+        <button class="btn" onclick="changeAccount()">Change Username/Password</button>
+        <div class="small" id="welcomeTxt"></div>
+      </div>
+      <div>
+        <button class="btn" onclick="openChatUI()">Open Chat</button>
+      </div>
+    </div>
+
+    <div id="products" class="products"></div>
+    <div id="empty" class="small" style="display:none;margin-top:12px">No products</div>
+  </div>
+
+  <!-- Chat popup -->
+  <div id="chatPopup" class="chat-popup">
+    <div class="chat-head">
+      <div><strong>Chat with Admin</strong></div>
+      <div><button class="btn" onclick="closeChat()">Close</button></div>
+    </div>
+    <div id="chatBody" class="chat-body"></div>
+    <div class="chat-input">
+      <input id="chatMsg" placeholder="Type a message..." />
+      <button class="btn primary" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+<script>
+const CONFIG = {
+  TELEGRAM_USERNAME: 'YourTelegramUsername', // <-- CHANGE this to your telegram username (without @)
+  USE_SERVER_API: false,
+  API_BASE: '' // if using server, e.g. https://myserver.example.com
+};
+
+document.getElementById('tgBtn').href = 'https://t.me/' + CONFIG.TELEGRAM_USERNAME;
+
+let currentUser = JSON.parse(localStorage.getItem('ds_current_user') || 'null') || null;
+if(!currentUser){
+  // if no current user, try local demo storage (signup saved)
+  const demo = JSON.parse(localStorage.getItem('ds_demo_users')||'[]');
+  if(demo && demo.length>0) currentUser = demo[0];
+}
+document.getElementById('welcomeTxt').textContent = currentUser ? ('Signed in: ' + currentUser.username) : 'Signed in: Guest';
+
+async function loadProducts(){
+  try {
+    const res = await fetch('products.json', {cache:'no-store'});
+    const prods = await res.json();
+    renderProducts(prods);
+  } catch(e){
+    // fallback to demo list
+    const demo = JSON.parse(localStorage.getItem('ds_demo_products')||'[]');
+    if(demo.length>0) renderProducts(demo);
+    else {
+      document.getElementById('empty').style.display='block';
+    }
+  }
+}
+
+function renderProducts(list){
+  const container = document.getElementById('products');
+  container.innerHTML = '';
+  if(!list || list.length===0){ document.getElementById('empty').style.display='block'; return; }
+  document.getElementById('empty').style.display='none';
+  list.forEach(p=>{
+    const el = document.createElement('div'); el.className='card';
+    el.innerHTML = `<div class="title">${escapeHtml(p.title)}</div>
+                    <div class="desc">${escapeHtml(p.desc||'')}</div>
+                    <div class="price">₹ ${Number(p.price||0).toFixed(2)}</div>
+                    <div class="actions">
+                      <button class="btn primary" onclick="selectProduct('${p.id}')">Select</button>
+                    </div>`;
+    container.appendChild(el);
+  });
+}
+
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function doSearch(){
+  const q = (document.getElementById('q').value||'').trim().toLowerCase();
+  fetch('products.json',{cache:'no-store'}).then(r=>r.json()).then(list=>{
+    const f = list.filter(p=> (p.title+p.desc).toLowerCase().includes(q));
+    renderProducts(f);
+  }).catch(err=>{ alert('Search failed: '+err.message); });
+}
+
+function selectProduct(pid){
+  // send initial message / notify admin by creating chat entry
+  if(!currentUser){ alert('Please login.'); location.href='index.html'; return; }
+  // Save to messages.json via server or localStorage
+  if(CONFIG.USE_SERVER_API){
+    fetch(CONFIG.API_BASE + '/api/add-message', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId: pid, from: currentUser.username, to:'ADMIN', text: currentUser.username + ' is interested' })})
+    .then(r=>r.json()).then(j=>{ if(j.ok) openChatUI(pid); else alert('Error: '+(j.error||'failed')); })
+    .catch(e=>alert('Error: '+e.message));
+  } else {
+    // local demo storage
+    const msgs = JSON.parse(localStorage.getItem('ds_demo_messages')||'{}');
+    msgs[pid] = msgs[pid]||[];
+    msgs[pid].push({ id:'m_'+Date.now(), from: currentUser.username, to:'ADMIN', text: currentUser.username + ' is interested in this product', time: Date.now(), read:false });
+    localStorage.setItem('ds_demo_messages', JSON.stringify(msgs));
+    openChatUI(pid);
+    alert('Selection saved (demo local). Admin will see it only in server-mode.');
+  }
+}
+
+let activeChatProduct = null;
+function openChatUI(pid){
+  activeChatProduct = pid || (document.querySelector('#products .card') && document.querySelector('#products .card')?.dataset?.id);
+  document.getElementById('chatPopup').style.display='flex';
+  loadChatMessages(activeChatProduct);
+}
+function closeChat(){ document.getElementById('chatPopup').style.display='none'; }
+
+function loadChatMessages(pid){
+  const body = document.getElementById('chatBody');
+  body.innerHTML = '';
+  if(CONFIG.USE_SERVER_API){
+    fetch(CONFIG.API_BASE + '/api/get-messages?productId=' + encodeURIComponent(pid)).then(r=>r.json()).then(j=>{
+      if(j.ok){
+        showMessages(j.messages || []);
+      } else alert('Error: '+(j.error||''));
+    }).catch(e=>alert('Error: '+e.message));
+  } else {
+    const msgs = JSON.parse(localStorage.getItem('ds_demo_messages')||'{}');
+    showMessages(msgs[pid]||[]);
+  }
+}
+
+function showMessages(arr){
+  const body = document.getElementById('chatBody');
+  body.innerHTML = '';
+  arr.forEach(m=>{
+    const d = document.createElement('div'); d.className = (m.from === (currentUser?currentUser.username:'Guest')) ? 'msg me' : 'msg admin';
+    d.innerHTML = `<div style="font-size:12px;opacity:0.8">${escapeHtml(m.from)} • ${new Date(m.time).toLocaleString()}</div><div style="margin-top:6px">${escapeHtml(m.text)}</div>`;
+    body.appendChild(d);
+  });
+  body.scrollTop = body.scrollHeight;
+}
+
+function sendChat(){
+  const text = document.getElementById('chatMsg').value.trim();
+  if(!text) return;
+  if(CONFIG.USE_SERVER_API){
+    fetch(CONFIG.API_BASE + '/api/add-message', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ productId: activeChatProduct, from: currentUser.username, to: 'ADMIN', text })})
+    .then(r=>r.json()).then(j=>{ if(j.ok){ loadChatMessages(activeChatProduct); document.getElementById('chatMsg').value=''; } else alert('Error: '+(j.error||'')); })
+    .catch(e=>alert('Error: '+e.message));
+  } else {
+    const msgs = JSON.parse(localStorage.getItem('ds_demo_messages')||'{}');
+    msgs[activeChatProduct] = msgs[activeChatProduct]||[];
+    msgs[activeChatProduct].push({ id:'m_'+Date.now(), from: currentUser.username, to:'ADMIN', text, time: Date.now(), read:false });
+    localStorage.setItem('ds_demo_messages', JSON.stringify(msgs));
+    loadChatMessages(activeChatProduct);
+    document.getElementById('chatMsg').value='';
+  }
+}
+
+function changeAccount(){
+  // simple change (local demo)
+  const newName = prompt('New username:', (currentUser && currentUser.username) || '');
+  const newPwd = prompt('New password (leave blank to keep):', '');
+  if(!newName) return;
+  if(CONFIG.USE_SERVER_API){
+    // call server to update user
+    fetch(CONFIG.API_BASE + '/api/update-user', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ oldUsername: currentUser.username, newUsername: newName, newPassword: newPwd })})
+    .then(r=>r.json()).then(j=>{ if(j.ok){ alert('Updated'); localStorage.setItem('ds_current_user', JSON.stringify({username:newName,role:'user',status:'active'})); document.getElementById('welcomeTxt').textContent='Signed in: '+newName; } else alert('Error: '+j.error); })
+    .catch(e=>alert('Error: '+e.message));
+  } else {
+    const demo = JSON.parse(localStorage.getItem('ds_demo_users')||'[]');
+    // update or create
+    let found = demo.find(x=>x.username === (currentUser && currentUser.username));
+    if(found){ found.username = newName; if(newPwd) found.password = newPwd; }
+    else demo.push({ username:newName, password:newPwd||'demo', role:'user', status:'active' });
+    localStorage.setItem('ds_demo_users', JSON.stringify(demo));
+    currentUser = { username: newName, role:'user', status:'active' };
+    localStorage.setItem('ds_current_user', JSON.stringify(currentUser));
+    document.getElementById('welcomeTxt').textContent = 'Signed in: ' + newName;
+    alert('Updated locally (demo).');
+  }
+}
+
+loadProducts();
+</script>
+</body>
+</html>

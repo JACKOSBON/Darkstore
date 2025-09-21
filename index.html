@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Login - Dark Store</title>
+  <style>
+    body{margin:0;font-family:Inter,system-ui;background:#071225;color:#e6eef8;display:flex;align-items:center;justify-content:center;height:100vh}
+    .box{background:linear-gradient(180deg,#0b1722,#061018);padding:20px;border-radius:12px;width:320px;box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    h2{margin:0 0 12px 0}
+    input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;margin-top:8px}
+    .row{display:flex;gap:8px;margin-top:12px}
+    .btn{flex:1;padding:10px;border-radius:8px;border:0;cursor:pointer}
+    .btn.primary{background:#60a5fa;color:#032;font-weight:700}
+    .link{display:block;margin-top:12px;text-align:center;color:#7dd3fc;cursor:pointer}
+    .small{font-size:13px;color:#9aa6b2;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Sign in</h2>
+    <input id="username" placeholder="Username" />
+    <input id="password" placeholder="Password" type="password" />
+    <div class="row">
+      <button class="btn primary" onclick="login()">Login</button>
+    </div>
+    <div class="small">Don't have account?</div>
+    <div class="link" onclick="gotoSignup()">Create Account</div>
+    <div class="small" style="margin-top:8px">Note: For demo, data reads from users.json in repo. To enable create/edit you need server (see README steps below).</div>
+  </div>
+
+<script>
+const CONFIG = {
+  USE_SERVER_API: false,   // <-- demo: false (localStorage fallback). To write to GitHub set up server and set true
+  API_BASE: '',           // <-- your server base URL if USE_SERVER_API true (e.g. https://my-api.example.com)
+  REPO_OWNER: 'YOUR_GITHUB_USERNAME',
+  REPO_NAME: 'YOUR_REPO_NAME',
+  BRANCH: 'main'
+};
+
+async function login(){
+  const u=document.getElementById('username').value.trim();
+  const p=document.getElementById('password').value.trim();
+  if(!u||!p){ alert('Enter username and password'); return; }
+
+  try {
+    // fetch users.json (read-only)
+    const res = await fetch('users.json', {cache:'no-store'});
+    if(!res.ok) throw new Error('users.json not found (make sure you uploaded it to repo)');
+    const users = await res.json();
+    const found = users.find(x=> x.username===u && x.password===p);
+    if(!found){ alert('Invalid username or password'); return; }
+    if(found.status === 'banned'){ alert('Your account is banned. Contact admin'); return; }
+
+    // store current user in localStorage (for session)
+    localStorage.setItem('ds_current_user', JSON.stringify(found));
+    if(found.role === 'admin') location.href = 'admin.html';
+    else location.href = 'user.html';
+  } catch(err){
+    alert('Error: '+err.message + '\n\nIf you are running locally, fetch('+'users.json'+') may be blocked. Host on GitHub Pages and try again.');
+    console.error(err);
+  }
+}
+
+function gotoSignup(){ location.href='signup.html'; }
+</script>
+</body>
+</html>
